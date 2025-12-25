@@ -1,0 +1,279 @@
+ขอโทษทีครับ! ผมเช็คโค้ดดูแล้วพบสาเหตุที่ **"เค้กไม่มา"** ครับ
+
+1. **CSS ที่ให้มามีแค่ส่วน "เทียน" (Candle):** ในโค้ด CSS ชุดที่ 2 ของคุณ มี class `.velas` (เทียน) และ `.fuego` (ไฟ) แต่ไม่มี class สำหรับตัวเค้ก (Body of cake) ครับ มันเลยมีแค่เทียนลอยอยู่
+2. **จังหวะอนิเมชั่น (สำคัญมาก):** ตัวเทียนถูกสั่งให้เล่นอนิเมชั่นทันทีที่โหลดหน้าเว็บ แต่หน้านั้นถูก `hidden` (ซ่อน) อยู่ พอคุณกดเปิดการ์ดเข้าไป อนิเมชั่นมันเล่นจบไปแล้ว (เทียนหล่นลงมาเสร็จแล้ว) คุณเลยไม่เห็นตอนมันขยับครับ
+
+ผมได้ **"สร้างตัวเค้กใหม่"** ให้เข้ากับธีม และเขียน JavaScript **"สั่งให้เทียนเริ่มหล่นลงมาตอนกดเปิดการ์ดเท่านั้น"** ให้แล้วครับ
+
+ก๊อปปี้โค้ดนี้ไปทับทั้งหมดได้เลย เค้กมาแน่นอน! 🎂✨
+
+```html
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>สุขสันต์วันเกิดนะ!</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Mali:wght@400;600;700&family=Fira+Code:wght@500&family=Lato:300italic&display=swap" rel="stylesheet">
+    
+    <style>
+        /* --- MAIN STYLES --- */
+        body {
+            font-family: 'Mali', cursive;
+            background-color: #fef3c7; 
+            overflow: hidden;
+        }
+        .font-code { font-family: 'Fira Code', monospace; }
+        .fade-in { animation: fadeIn 0.8s ease-in forwards; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .card-shadow {
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        #canvas {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 50; pointer-events: none;
+        }
+
+        /* --- CAKE & CANDLE STYLES --- */
+        #cake-container {
+            position: relative;
+            height: 160px; /* พื้นที่ความสูงของเค้ก */
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end; /* ให้เค้กอยู่ติดขอบล่างของกล่องนี้ */
+            margin-bottom: 10px;
+        }
+
+        /* 1. ส่วนตัวเค้ก (ผมสร้างเพิ่มให้ เพราะใน CSS เดิมไม่มี) */
+        .cake-body {
+            position: relative;
+            width: 180px;
+            height: 80px;
+            background-color: #fcd34d; /* สีเหลืองเค้ก */
+            border-radius: 20px 20px 10px 10px;
+            box-shadow: 0 4px 0 #fbbf24;
+            z-index: 1;
+        }
+        /* ครีมหน้าเค้ก */
+        .cake-icing {
+            position: absolute;
+            top: 0; left: -5px;
+            width: 190px;
+            height: 30px;
+            background-color: #fca5a5; /* สีชมพู */
+            border-radius: 20px;
+            z-index: 2;
+        }
+        .cake-icing::before { /* หยดครีม */
+            content: '';
+            position: absolute;
+            top: 20px; left: 20px;
+            width: 15px; height: 15px;
+            background-color: #fca5a5;
+            border-radius: 0 0 20px 20px;
+            box-shadow: 30px 0 0 #fca5a5, 60px 5px 0 #fca5a5, 90px 0 0 #fca5a5, 120px 5px 0 #fca5a5;
+        }
+
+        /* 2. ส่วนเทียน (จากโค้ดที่คุณให้มา) */
+        .velas {
+            background: #ffffff;
+            border-radius: 10px;
+            position: absolute;
+            bottom: 70px; /* ปรับให้ปักอยู่บนเค้กพอดี */
+            left: 50%;
+            margin-left: -2.5px;
+            width: 5px;
+            height: 35px;
+            z-index: 3;
+            opacity: 0; /* ซ่อนไว้ก่อน รอ JS สั่งให้หล่น */
+            backface-visibility: hidden;
+        }
+        /* ลายบนเทียน */
+        .velas:after, .velas:before {
+            background: rgba(255, 0, 0, 0.4);
+            content: "";
+            position: absolute;
+            width: 100%; height: 2px;
+        }
+        .velas:after { top: 25%; left: 0; }
+        .velas:before { top: 45%; left: 0; }
+
+        /* 3. ส่วนไฟ (Fire) */
+        .fuego {
+            border-radius: 100%;
+            position: absolute;
+            top: -20px; left: 50%;
+            margin-left: -3px;
+            width: 6px; height: 18px;
+        }
+        .fuego:nth-child(1) { animation: fuego 2s infinite; }
+        .fuego:nth-child(2) { animation: fuego 1.5s infinite; }
+        .fuego:nth-child(3) { animation: fuego 1s infinite; }
+        .fuego:nth-child(4) { animation: fuego 0.5s infinite; }
+        .fuego:nth-child(5) { animation: fuego 0.2s infinite; }
+
+        @keyframes fuego {
+            0%, 100% { background: rgba(254, 248, 97, 0.5); transform: translateY(0) scale(1); }
+            50% { background: rgba(255, 50, 0, 0.1); transform: translateY(-20px) scale(0); }
+        }
+
+        /* Animation เทียนหล่น (จะถูกเรียกใช้โดย JS) */
+        .fall-in {
+            animation: candleFall 0.8s ease-out forwards;
+        }
+        
+        @keyframes candleFall {
+            from { transform: translateY(-200px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+    </style>
+</head>
+<body class="flex items-center justify-center h-screen w-full relative">
+
+    <canvas id="canvas"></canvas>
+
+    <div class="absolute top-10 left-10 text-4xl animate-bounce" style="animation-duration: 3s;">🎈</div>
+    <div class="absolute bottom-20 right-10 text-4xl animate-bounce" style="animation-duration: 4s;">✨</div>
+
+    <div id="page-input" class="bg-white p-8 rounded-2xl card-shadow text-center max-w-sm w-full mx-4 fade-in z-10 border-4 border-orange-200">
+        <h1 class="text-2xl font-bold text-orange-500 mb-6">ขอทราบอายุนิดนึงนะ...</h1>
+        <div class="mb-6">
+            <input type="number" id="ageInput" class="w-full text-center text-3xl p-3 border-2 border-orange-300 rounded-xl text-orange-600 font-bold outline-none" placeholder="00">
+            <p id="error-msg" class="text-red-400 text-sm mt-2 hidden">กรุณากรอกอายุก่อนนะ!</p>
+        </div>
+        <button onclick="goToCardPage()" class="w-full bg-orange-400 hover:bg-orange-500 text-white font-bold py-3 px-6 rounded-full transition shadow-lg hover:scale-105">ยืนยันอายุ!</button>
+    </div>
+
+    <div id="page-card" class="hidden bg-white max-w-md w-full mx-4 h-[500px] rounded-2xl card-shadow relative border-8 border-orange-100 flex flex-col items-center justify-center text-center p-6 z-10">
+        <div class="w-32 h-32 bg-orange-100 rounded-full flex items-center justify-center mb-4 border-4 border-orange-300 relative">
+            <span class="text-5xl">🐯</span> 
+        </div>
+        <h2 class="text-3xl text-gray-700 font-bold mb-2">Happy Birthday</h2>
+        <div class="relative inline-block my-4">
+            <span class="text-gray-400 text-xl absolute -top-4 -left-4 transform -rotate-12">เข้าสู่ปีที่</span>
+            <span id="displayAge" class="text-7xl font-bold text-orange-500 drop-shadow-md">--</span>
+            <span class="text-gray-400 text-xl absolute -bottom-2 -right-6 transform rotate-12">ขวบแล้ว!</span>
+        </div>
+        <button onclick="openFinalContent()" class="mt-8 bg-red-400 hover:bg-red-500 text-white text-xl font-bold py-3 px-10 rounded-full transition shadow-lg animate-pulse">
+            เปิดอ่านการ์ด 💌
+        </button>
+    </div>
+
+    <div id="page-content" class="hidden w-full h-full absolute inset-0 bg-white z-20 flex flex-col items-center justify-center p-4">
+        <button onclick="location.reload()" class="absolute top-4 right-4 z-50 bg-gray-100 p-2 rounded-full text-gray-400">❌</button>
+
+        <div class="bg-orange-50 border-4 border-orange-200 rounded-2xl shadow-xl max-w-md w-full p-6 text-center relative overflow-visible"> <div id="cake-container">
+                <div id="candle" class="velas">
+                    <div class="fuego"></div>
+                    <div class="fuego"></div>
+                    <div class="fuego"></div>
+                    <div class="fuego"></div>
+                    <div class="fuego"></div>
+                </div>
+                <div class="cake-body">
+                    <div class="cake-icing"></div>
+                </div>
+            </div>
+
+            <div class="mb-4 relative z-10">
+                <h2 class="text-3xl font-bold text-orange-600 mb-2">สุขสันต์วันเกิดนะครับ! 🎉</h2>
+                <p class="text-gray-600 font-bold text-sm mb-4">ขอให้มีความสุขมากๆ สุขภาพแข็งแรงนะ</p>
+                
+                <div class="bg-gray-800 text-green-400 rounded-lg p-2 text-xs font-code text-left shadow-inner mx-auto w-fit">
+                    <span class="text-pink-400">var</span> sadness = <span class="text-yellow-400">null</span>;<br>
+                    <span class="text-pink-400">const</span> happiness = <span class="text-yellow-400">Infinity</span>;
+                </div>
+            </div>
+
+            <button onclick="fireworks()" class="w-full bg-gradient-to-r from-pink-400 to-orange-400 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:scale-105 flex items-center justify-center space-x-2 z-10 relative">
+                <span>🎁</span><span>จุดพลุฉลองเลย!!</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- เปลี่ยนหน้า ---
+        const pageInput = document.getElementById('page-input');
+        const pageCard = document.getElementById('page-card');
+        const pageContent = document.getElementById('page-content');
+        const ageInput = document.getElementById('ageInput');
+        const displayAge = document.getElementById('displayAge');
+
+        function goToCardPage() {
+            if (!ageInput.value) return alert('กรอกอายุก่อนนะ!');
+            displayAge.innerText = ageInput.value;
+            pageInput.classList.add('hidden');
+            pageCard.classList.remove('hidden');
+            pageCard.classList.add('fade-in');
+        }
+
+        function openFinalContent() {
+            pageCard.style.transition = "transform 0.5s, opacity 0.5s";
+            pageCard.style.transform = "scale(1.1)";
+            pageCard.style.opacity = "0";
+            
+            setTimeout(() => {
+                pageCard.classList.add('hidden');
+                pageContent.classList.remove('hidden');
+                pageContent.classList.add('fade-in');
+
+                // *** จุดสำคัญ: สั่งให้เทียนเริ่มอนิเมชั่นตอนนี้ เทียนถึงจะหล่นให้เห็น ***
+                const candle = document.getElementById('candle');
+                candle.classList.remove('fall-in'); // รีเซ็ตเผื่อไว้
+                void candle.offsetWidth; // Trigger Reflow
+                candle.classList.add('fall-in'); // เริ่มเล่นอนิเมชั่น
+                
+            }, 400);
+        }
+
+        // --- พลุ (Fireworks) ---
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        let particles = [];
+
+        function createParticle(x, y, color) {
+            for (let i = 0; i < 30; i++) {
+                particles.push({
+                    x: x, y: y, color: color,
+                    radius: Math.random() * 3 + 1,
+                    velocity: { x: (Math.random() - 0.5) * 6, y: (Math.random() - 0.5) * 6 },
+                    alpha: 1, life: Math.random() * 40 + 40
+                });
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            particles.forEach((p, i) => {
+                if (p.life > 0) {
+                    ctx.fillStyle = p.color; ctx.globalAlpha = p.alpha;
+                    ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2); ctx.fill();
+                    p.x += p.velocity.x; p.y += p.velocity.y; p.velocity.y += 0.05;
+                    p.alpha -= 0.01; p.life--;
+                } else particles.splice(i, 1);
+            });
+        }
+        animate();
+
+        function fireworks() {
+            let count = 0;
+            const colors = ['#F87171', '#FBBF24', '#34D399', '#60A5FA'];
+            const interval = setInterval(() => {
+                createParticle(Math.random() * canvas.width, Math.random() * (canvas.height * 0.6), colors[Math.floor(Math.random() * colors.length)]);
+                count++; if(count > 10) clearInterval(interval);
+            }, 300);
+        }
+    </script>
+</body>
+</html>
+
+```
